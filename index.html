@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Ký & Xác minh Chữ ký Số</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      padding: 40px;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      color: #0066cc;
+    }
+    input[type="file"] {
+      display: block;
+      margin-bottom: 0px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #004d99;
+    }
+    .result {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .divider {
+      margin: 30px 0;
+      height: 1px;
+      background: #ddd;
+    }
+    .signature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .title {
+      display: block;
+      margin-right: 10px;
+      font-weight: 700;
+    } 
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>🔐 Ký File</h2>
+    <div class="signature">
+      <div class="title" for="">Thêm file cần ký:</div>
+      <input type="file" id="signFileInput">
+    </div>
+    <button onclick="signFile()">Ký & Tải file .sig</button>
+
+    <div class="divider"></div>
+
+    <h2>🧾 Xác minh Chữ ký</h2>
+
+    <div class="signature">
+      <div class="title" for="">Thêm file đã ký:</div>
+      <input type="file" id="verifyFileInput">
+    </div>
+
+    
+    <div class="signature">
+      <div class="title" for="">Thêm file mã hóa:</div>
+      <input type="file" id="verifySigInput">
+    </div>
+
+    <button onclick="verifyFile()">Xác minh</button>
+
+    <div class="result" id="verifyResult"></div>
+  </div>
+
+  <script>
+    async function signFile() {
+      const file = document.getElementById('signFileInput').files[0];
+      if (!file) return alert('Vui lòng chọn file cần ký.');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('http://localhost:3000/sign-file', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        return alert('❌ Ký file thất bại!');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name + '.sig';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    async function verifyFile() {
+      const file = document.getElementById('verifyFileInput').files[0];
+      const sig = document.getElementById('verifySigInput').files[0];
+      const resultBox = document.getElementById('verifyResult');
+
+      if (!file || !sig) {
+        return alert('Vui lòng chọn cả file và file .sig');
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('signatureFile', sig);
+
+      const response = await fetch('http://localhost:3000/verify-file', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      resultBox.textContent = data.message;
+      resultBox.style.color = data.isValid ? 'green' : 'red';
+    }
+  </script>
+
+</body>
+</html>

@@ -3,9 +3,10 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
-
+const cors = require('cors')
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
@@ -21,47 +22,67 @@ const publicKey = fs.readFileSync(path.join(__dirname, 'keys', 'public.pem'), 'u
 app.post('/sign-file', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Không có file tải lên' });
 
-  console.log(req.file.originalname);
-  const fileData = fs.readFileSync(req.file.path); //đọc file từ phía frontend gửi lên 
+  const fileData = fs.readFileSync(req.file.path);
 
-  const sign = crypto.createSign('SHA256'); //Tạo đối tượng để ký cho 
+  const sign = crypto.createSign('SHA256');
   sign.update(fileData);
   sign.end();
 
   const signature = sign.sign(privateKey, 'base64');
 
-  // Xóa file sau khi xử lý
+  // Tạo tên file .sig dựa trên tên file gốc
+  const sigFileName = req.file.filename + '.sig';
+  const sigFilePath = path.join(__dirname, 'uploads', sigFileName);
+
+  // Ghi signature vào file .sig
+  fs.writeFileSync(sigFilePath, signature);
+
+  // Xóa file gốc sau khi ký (nếu không cần nữa)
   fs.unlinkSync(req.file.path);
 
-  const timeSign = Date.now();
-  const date = new Date(timeSign);
-  const timeInRealLife = date.toLocaleString();
+  // Trả về file .sig cho client
+  res.download(sigFilePath, sigFileName, (err) => {
+    if (err) {
+      console.error('❌ Lỗi gửi file:', err);
+      res.status(500).send('Lỗi khi gửi file .sig');
+    }
 
-  const datFinal = {
-    signature,
-    timeInRealLife
-  }
-  res.json(datFinal);
+    // Xóa file .sig sau khi đã gửi xong
+    fs.unlinkSync(sigFilePath);
+  });
 });
 
-app.post('/verify-file', upload.single('file'), (req, res) => {
-    const { signature, timeInRealLife} = req.body;
-    if (!req.file || !signature) return res.status(400).json({ error: 'Thiếu file hoặc chữ ký' });
-    const fileData = fs.readFileSync(req.file.path);
-  
-    const verify = crypto.createVerify('SHA256');
-    verify.update(fileData);
-    verify.end();
-  
-    const isValid = verify.verify(publicKey, signature, 'base64');
-  
-    // Xóa file sau khi xử lý
-    fs.unlinkSync(req.file.path);
-    res.json({
-      isValid,
-      timeInRealLife: isValid ? timeInRealLife : null
-    });
+const verifyUpload = upload.fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'signatureFile', maxCount: 1 }
+]);
+
+app.post('/verify-file', verifyUpload, (req, res) => {
+  const file = req.files?.file?.[0];
+  const signatureFile = req.files?.signatureFile?.[0];
+
+  if (!file || !signatureFile) {
+    return res.status(400).json({ error: 'Thiếu file hoặc file chữ ký (.sig)' });
+  }
+
+  const fileData = fs.readFileSync(file.path);
+  const signature = fs.readFileSync(signatureFile.path, 'utf8');
+
+  const verify = crypto.createVerify('SHA256');
+  verify.update(fileData);
+  verify.end();
+
+  const isValid = verify.verify(publicKey, signature, 'base64');
+
+  // Dọn dẹp file sau khi xử lý
+  fs.unlinkSync(file.path);
+  fs.unlinkSync(signatureFile.path);
+
+  res.json({
+    isValid,
+    message: isValid ? '✅ Chữ ký hợp lệ' : '❌ Chữ ký không hợp lệ'
   });
+});
   
 
 const PORT = 3000;
