@@ -65,33 +65,33 @@
   <div class="container">
     <h2>🔐 Ký File</h2>
     <div class="signature">
-      <div class="title" for="">Thêm file cần ký:</div>
+      <div class="title">Thêm file cần ký:</div>
       <input type="file" id="signFileInput">
     </div>
-    <button onclick="signFile()">Ký & Tải file .sig</button>
+    <button type="button" onclick="signFile(event)">Ký & Tải file .sig</button>
 
     <div class="divider"></div>
 
     <h2>🧾 Xác minh Chữ ký</h2>
 
     <div class="signature">
-      <div class="title" for="">Thêm file đã ký:</div>
+      <div class="title">Thêm file đã ký:</div>
       <input type="file" id="verifyFileInput">
     </div>
 
-    
     <div class="signature">
-      <div class="title" for="">Thêm file mã hóa:</div>
+      <div class="title">Thêm file mã hóa:</div>
       <input type="file" id="verifySigInput">
     </div>
 
-    <button onclick="verifyFile()">Xác minh</button>
+    <button onclick="verifyFile(event)">Xác minh</button>
 
     <div class="result" id="verifyResult"></div>
   </div>
 
   <script>
-    async function signFile() {
+    async function signFile(event) {
+      event.preventDefault();
       const file = document.getElementById('signFileInput').files[0];
       if (!file) return alert('Vui lòng chọn file cần ký.');
 
@@ -117,7 +117,8 @@
       a.remove();
     }
 
-    async function verifyFile() {
+    async function verifyFile(event) {
+      event.preventDefault();
       const file = document.getElementById('verifyFileInput').files[0];
       const sig = document.getElementById('verifySigInput').files[0];
       const resultBox = document.getElementById('verifyResult');
